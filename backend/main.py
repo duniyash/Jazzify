@@ -1,92 +1,52 @@
-"""
-Jazzify API
------------------------------
-A FastAPI application that processes MusicXML files to predict and add chords.
-"""
-
-import os
-import logging
 from fastapi import FastAPI, File, UploadFile, HTTPException
-from fastapi.responses import FileResponse
+from fastapi.responses import StreamingResponse
+from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
-from tempfile import NamedTemporaryFile
-import shutil
+import logging
 
 from functions.processing import process_musicxml_file
+from functions.utils import setup_logging
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+# Set up logging
+setup_logging()
+
+app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
-logger = logging.getLogger(__name__)
 
-# Initialize FastAPI app
-app = FastAPI(
-    title="MusicXML Chord Prediction API",
-    description="API for processing MusicXML files to predict and add chord notations",
-    version="1.0.0"
-)
-
-@app.post("/process_musicxml", response_class=FileResponse)
-async def process_musicxml(file: UploadFile = File(...)):
+@app.post("/process_musicxml")
+async def process_musicxml_endpoint(file: UploadFile = File(...)):
     """
-    Process a MusicXML file to add predicted chords.
-    
-    Parameters:
-    -----------
-    file: UploadFile
-        The MusicXML file to process
-        
-    Returns:
-    --------
-    FileResponse
-        The processed MusicXML file with predicted chords
+    Endpoint to process an uploaded MusicXML file.
+    Validates the file type, processes the file, and returns a new MusicXML file with predicted chords.
     """
-    logger.info(f"Received file: {file.filename}")
-    
-    # Validate file extension
-    if not file.filename.lower().endswith(('.xml', '.musicxml')):
-        raise HTTPException(status_code=400, detail="Only MusicXML files are accepted (.xml, .musicxml)")
-    
-    # Create temporary files for input and output
-    input_temp = NamedTemporaryFile(delete=False, suffix='.xml')
-    output_temp = NamedTemporaryFile(delete=False, suffix='.xml')
+    # Validate file extension (basic check)
+    if not (file.filename.endswith('.xml') or file.filename.endswith('.musicxml') or file.filename.endswith('.mxl')):
+        raise HTTPException(status_code=400, detail="Invalid file type. Please upload a MusicXML file.")
     
     try:
-        # Save uploaded file to temp file
-        with input_temp as f:
-            shutil.copyfileobj(file.file, f)
+        # Read the uploaded file's contents
+        contents = await file.read()
+        # Process the MusicXML file and get an in-memory output stream
+        output_stream = process_musicxml_file(contents)
         
-        # Process the file
-        logger.info(f"Processing file: {file.filename}")
-        process_musicxml_file(input_temp.name, output_temp.name)
-        
-        # Return the processed file
-        return FileResponse(
-            path=output_temp.name, 
-            filename=f"processed_{file.filename}",
-            media_type="application/xml"
+        # Return the output MusicXML as a downloadable file
+        return StreamingResponse(
+            output_stream,
+            media_type="application/xml",
+            headers={"Content-Disposition": "attachment; filename=processed.musicxml"}
         )
     
     except Exception as e:
-        logger.error(f"Error processing file: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Error processing file: {str(e)}")
-    
-    finally:
-        # Clean up temp files
-        file.file.close()
-        if os.path.exists(input_temp.name):
-            os.unlink(input_temp.name)
-        # Output file will be cleaned up by FastAPI after sending the response
+        logging.exception("Error processing MusicXML file")
+        raise HTTPException(status_code=500, detail=str(e))
 
-@app.get("/")
-async def root():
-    """Root endpoint with API information."""
-    return {
-        "message": "Jazzify API",
-        "usage": "POST a MusicXML file to /process_musicxml to get chord predictions"
-    }
-
-if __name__ == "__main__":
+if __name__ == '__main__':
+    # Run the app with uvicorn when executed directly
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)

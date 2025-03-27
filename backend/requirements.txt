@@ -4,3 +4,4 @@ python-multipart==0.0.9
 music21==9.1.0
 safetensors==0.4.2
 torch==2.2.0
+numpy==1.26.0
