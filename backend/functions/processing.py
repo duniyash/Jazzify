@@ -52,6 +52,7 @@ def process_musicxml_file(file_contents: bytes):
       5. Compile the predicted chords into a new score (bass clef).
       6. Output the new score as a MusicXML file stream.
     """
+    print("Processing musicxml file")
     try:
         # Parse the MusicXML file from bytes
         score = converter.parse(io.BytesIO(file_contents))
@@ -63,7 +64,7 @@ def process_musicxml_file(file_contents: bytes):
     measures_data = extract_measures(score)
     
     # Load the chord prediction model (dummy path provided)
-    model = load_model("path/to/model.safetensors")
+    model = load_model("model/chord_predictor.safetensors")
     
     # Predict chords for each measure
     predicted_chords = []

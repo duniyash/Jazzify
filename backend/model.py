@@ -123,6 +123,7 @@ def parse_note(note_str):
 
 # ----- Load the Model -----
 def load_model(filepath: str):
+    print(f"Loading model from {filepath}")
     """
     Loads the pre-trained chord prediction model from a safetensors file.
     Replace torch.load with your safetensors loading function if needed.

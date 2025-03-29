@@ -20,6 +20,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+@app.get("/")
+async def root():
+    return {"message": "Hello World"}
+
+@app.get("/test")
+async def test(file: UploadFile = File(...)):
+    return {"message": "Test endpoint", "filename": file.filename}
+
 @app.post("/process_musicxml")
 async def process_musicxml_endpoint(file: UploadFile = File(...)):
     """
@@ -37,14 +45,15 @@ async def process_musicxml_endpoint(file: UploadFile = File(...)):
         output_stream = process_musicxml_file(contents)
         
         # Return the output MusicXML as a downloadable file
-        return StreamingResponse(
-            output_stream,
-            media_type="application/xml",
-            headers={"Content-Disposition": "attachment; filename=processed.musicxml"}
-        )
+        #return StreamingResponse(
+        #    output_stream,
+        #    media_type="application/xml",
+        #    headers={"Content-Disposition": "attachment; filename=processed.musicxml"}
+        #)
+        return {"message": "Test endpoint", "filename": file.filename, "output_stream": output_stream}
     
     except Exception as e:
-        logging.exception("Error processing MusicXML file")
+        logging.exception("Error processing MusicXML file", e)
         raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == '__main__':
