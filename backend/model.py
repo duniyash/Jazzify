@@ -3,6 +3,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 import re
 from music21 import stream, clef, note, chord
+from safetensors.torch import load_file
+
 
 # ----- Example Encoding Dictionaries (replace with your actual mappings) -----
 note2idx = {
@@ -80,28 +82,68 @@ num_octaves = 10
 
 # ----- Model Definition -----
 class ChordPredictor(nn.Module):
-    def __init__(self, vocab_size, embed_dim, num_heads, hidden_dim, num_layers, num_classes, max_seq_length, num_octaves):
+    def __init__(self, vocab_size, embed_dim, num_heads, hidden_dim, num_layers, num_classes, max_seq_length, num_octaves=10):
+        """
+        num_octaves: maximum number of octave categories (adjust if your octave range is larger)
+        """
         super(ChordPredictor, self).__init__()
-        self.token_embedding = nn.Embedding(vocab_size, embed_dim, padding_idx=0)
-        self.octave_embedding = nn.Embedding(num_octaves, embed_dim)
-        # A simple transformer encoder layer
-        encoder_layer = nn.TransformerEncoderLayer(d_model=embed_dim, nhead=num_heads)
+        # Embedding for note tokens
+        self.note_embed = nn.Embedding(vocab_size, embed_dim)
+        # Embedding for octave values (assumes octave values are small integers)
+        self.octave_embed = nn.Embedding(num_octaves, embed_dim)
+        # Linear projection for note durations (continuous values)
+        self.duration_linear = nn.Linear(1, embed_dim)
+
+        # Learnable positional encoding
+        self.pos_embedding = nn.Parameter(torch.zeros(1, max_seq_length, embed_dim))
+
+        # Transformer Encoder
+        encoder_layer = nn.TransformerEncoderLayer(d_model=embed_dim, nhead=num_heads, dim_feedforward=hidden_dim)
         self.transformer_encoder = nn.TransformerEncoder(encoder_layer, num_layers=num_layers)
-        self.fc_chord = nn.Linear(embed_dim, num_classes)
-        self.fc_duration = nn.Linear(embed_dim, 1)
-    
-    def forward(self, tokens, octaves, durations):
-        # tokens: (batch, seq_length)
-        token_embed = self.token_embedding(tokens)
-        octave_embed = self.octave_embedding(octaves)
-        x = token_embed + octave_embed  # shape: (batch, seq_length, embed_dim)
-        # Transformer expects input of shape (seq_length, batch, embed_dim)
-        x = x.transpose(0, 1)
-        x = self.transformer_encoder(x)  # shape: (seq_length, batch, embed_dim)
-        # Aggregate sequence outputs by taking the mean along the time dimension
-        x_mean = x.mean(dim=0)  # shape: (batch, embed_dim)
-        chord_logits = self.fc_chord(x_mean)  # (batch, num_classes)
-        chord_duration = self.fc_duration(x_mean)  # (batch, 1)
+
+        # Additional fully connected layers after transformer pooling
+        self.fc1 = nn.Linear(embed_dim, hidden_dim)
+        self.relu = nn.ReLU()
+        self.dropout = nn.Dropout(0.5)
+        self.fc2 = nn.Linear(hidden_dim, hidden_dim // 2)
+        
+        # Two output heads:
+        # - For chord classification
+        self.fc_class = nn.Linear(hidden_dim // 2, num_classes)
+        # - For chord duration regression
+        self.fc_duration = nn.Linear(hidden_dim // 2, 1)
+
+    def forward(self, tokens, octaves, note_durations):
+        """
+        tokens: LongTensor of shape [batch_size, seq_length]
+        octaves: LongTensor of shape [batch_size, seq_length]
+        note_durations: FloatTensor of shape [batch_size, seq_length]
+        """
+        token_emb = self.note_embed(tokens)           # [B, L, embed_dim]
+        octave_emb = self.octave_embed(octaves)         # [B, L, embed_dim]
+        duration_emb = self.duration_linear(note_durations.unsqueeze(-1))  # [B, L, embed_dim]
+
+        # Sum embeddings and add positional encoding
+        x = token_emb + octave_emb + duration_emb + self.pos_embedding  # [B, L, embed_dim]
+
+        # Transformer expects input of shape [L, B, embed_dim]
+        x = x.permute(1, 0, 2)
+        x = self.transformer_encoder(x)
+
+        # Use the first token's output as a pooled representation
+        pooled = x[0]  # [B, embed_dim]
+
+        # Additional layers for further processing
+        x = self.fc1(pooled)
+        x = self.relu(x)
+        x = self.dropout(x)
+        x = self.fc2(x)
+        x = self.relu(x)
+        x = self.dropout(x)
+
+        # Final output heads
+        chord_logits = self.fc_class(x)              # [B, num_classes]
+        chord_duration = self.fc_duration(x).squeeze(-1)  # [B]
         return chord_logits, chord_duration
 
 # ----- Helper Function: Parse a Note String -----
@@ -123,11 +165,6 @@ def parse_note(note_str):
 
 # ----- Load the Model -----
 def load_model(filepath: str):
-    print(f"Loading model from {filepath}")
-    """
-    Loads the pre-trained chord prediction model from a safetensors file.
-    Replace torch.load with your safetensors loading function if needed.
-    """
     model = ChordPredictor(
         vocab_size,
         embed_dim,
@@ -138,11 +175,12 @@ def load_model(filepath: str):
         max_seq_length,
         num_octaves
     )
-    # Example using torch.load; adjust if using the safetensors library.
-    state_dict = torch.load(filepath, map_location=torch.device('cpu'))
+    # Load the state dictionary using the safetensors loader
+    state_dict = load_file(filepath)
     model.load_state_dict(state_dict)
     model.eval()
     return model
+
 
 # ----- Prediction Function -----
 def predict_chord(model, measure_data):
@@ -197,49 +235,50 @@ def predict_chord(model, measure_data):
     
     return predicted_chord
 
-# ----- Melody Extraction Function -----
 def melody_extractor(score):
     """
     Extracts the melody in the treble clef from the given MusicXML score,
-    discarding any elements that occur in the bass clef.
-    
+    discarding non-musical elements (e.g., Clef or layout objects).
+
+    Only note.Note, chord.Chord, and note.Rest elements are retained if they
+    occur in a treble clef context. Measure attributes like TimeSignature and
+    KeySignature are also copied.
+
     Args:
         score (music21.stream.Score): The input score.
-    
+
     Returns:
         music21.stream.Score: A new score containing only the melody from the treble clef.
     """
+    from music21 import stream, clef, note, chord
+
     # Create a new score and part for the melody
     melody_score = stream.Score()
     melody_part = stream.Part()
-    # Ensure the part has a treble clef at the beginning
+    # Insert a treble clef at the beginning of the part
     melody_part.append(clef.TrebleClef())
-    
+
     # Assume the melody is in the first part of the score
     original_part = score.parts[0]
-    
+
     # Iterate over each measure in the original part
     for measure in original_part.getElementsByClass('Measure'):
-        new_measure = measure.__class__()  # create an empty measure of the same type
-        
-        # Copy relevant elements from the original measure
+        new_measure = measure.__class__()  # create an empty measure
         for element in measure:
-            # For notes and chords, check their current clef context
-            if isinstance(element, note.Note) or isinstance(element, chord.Chord):
-                current_clef = element.getContextByClass('Clef')
-                if current_clef and isinstance(current_clef, clef.TrebleClef):
-                    new_measure.append(element)
-            # For rests, include them if they appear in the treble clef context
-            elif element.isRest:
+            # Skip any clef objects (and similar non-musical elements)
+            if isinstance(element, clef.Clef):
+                continue
+
+            # Process only Note, Chord, and Rest objects
+            if isinstance(element, (note.Note, chord.Chord, note.Rest)):
+                # Determine the clef context; if it exists and is a TrebleClef, keep the element.
                 current_clef = element.getContextByClass('Clef')
                 if current_clef and isinstance(current_clef, clef.TrebleClef):
                     new_measure.append(element)
             # Also copy measure attributes like TimeSignature and KeySignature
-            elif element.classes[0] in ['TimeSignature', 'KeySignature']:
+            elif hasattr(element, 'classes') and element.classes and element.classes[0] in ['TimeSignature', 'KeySignature']:
                 new_measure.insert(element.offset, element)
-        
-        # Append the measure (even if empty, to preserve timing) to the melody part
+            # Otherwise, skip the element (e.g., SystemLayout, etc.)
         melody_part.append(new_measure)
-    
     melody_score.append(melody_part)
     return melody_score

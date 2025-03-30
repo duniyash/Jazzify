@@ -4,7 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 import logging
 
-from functions.processing import process_musicxml_file
+from functions.processing import process_musicxml_file, maybe_convert_mxl
 from functions.utils import setup_logging
 
 # Set up logging
@@ -30,30 +30,18 @@ async def test(file: UploadFile = File(...)):
 
 @app.post("/process_musicxml")
 async def process_musicxml_endpoint(file: UploadFile = File(...)):
-    """
-    Endpoint to process an uploaded MusicXML file.
-    Validates the file type, processes the file, and returns a new MusicXML file with predicted chords.
-    """
-    # Validate file extension (basic check)
-    if not (file.filename.endswith('.xml') or file.filename.endswith('.musicxml') or file.filename.endswith('.mxl')):
-        raise HTTPException(status_code=400, detail="Invalid file type. Please upload a MusicXML file.")
-    
+    logging.info(f"Received file: {file.filename}, content type: {file.content_type}")
     try:
-        # Read the uploaded file's contents
         contents = await file.read()
-        # Process the MusicXML file and get an in-memory output stream
+        logging.info(f"Read {len(contents)} bytes from file")
         output_stream = process_musicxml_file(contents)
-        
-        # Return the output MusicXML as a downloadable file
-        #return StreamingResponse(
-        #    output_stream,
-        #    media_type="application/xml",
-        #    headers={"Content-Disposition": "attachment; filename=processed.musicxml"}
-        #)
-        return {"message": "Test endpoint", "filename": file.filename, "output_stream": output_stream}
-    
+        return StreamingResponse(
+            output_stream,
+            media_type="application/xml",
+            headers={"Content-Disposition": "attachment; filename=processed.musicxml"}
+        )
     except Exception as e:
-        logging.exception("Error processing MusicXML file", e)
+        logging.exception("Error processing MusicXML file")
         raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == '__main__':
