@@ -87,53 +87,53 @@ class ChordPredictor(nn.Module):
         num_octaves: maximum number of octave categories (adjust if your octave range is larger)
         """
         super(ChordPredictor, self).__init__()
-        # Embedding for note tokens
+        # * Embedding for note tokens
         self.note_embed = nn.Embedding(vocab_size, embed_dim)
-        # Embedding for octave values (assumes octave values are small integers)
+        # * Embedding for octave values (assumes octave values are small integers)
         self.octave_embed = nn.Embedding(num_octaves, embed_dim)
-        # Linear projection for note durations (continuous values)
+        # * Linear projection for note durations (continuous values)
         self.duration_linear = nn.Linear(1, embed_dim)
 
-        # Learnable positional encoding
+        # * Learnable positional encoding
         self.pos_embedding = nn.Parameter(torch.zeros(1, max_seq_length, embed_dim))
 
-        # Transformer Encoder
+        # * Transformer Encoder
         encoder_layer = nn.TransformerEncoderLayer(d_model=embed_dim, nhead=num_heads, dim_feedforward=hidden_dim)
         self.transformer_encoder = nn.TransformerEncoder(encoder_layer, num_layers=num_layers)
 
-        # Additional fully connected layers after transformer pooling
+        # * Additional fully connected layers after transformer pooling
         self.fc1 = nn.Linear(embed_dim, hidden_dim)
         self.relu = nn.ReLU()
         self.dropout = nn.Dropout(0.5)
         self.fc2 = nn.Linear(hidden_dim, hidden_dim // 2)
         
-        # Two output heads:
-        # - For chord classification
+        # * Two output heads:
+        # * - For chord classification
         self.fc_class = nn.Linear(hidden_dim // 2, num_classes)
-        # - For chord duration regression
+        # * - For chord duration regression
         self.fc_duration = nn.Linear(hidden_dim // 2, 1)
 
     def forward(self, tokens, octaves, note_durations):
-        """
-        tokens: LongTensor of shape [batch_size, seq_length]
-        octaves: LongTensor of shape [batch_size, seq_length]
-        note_durations: FloatTensor of shape [batch_size, seq_length]
-        """
-        token_emb = self.note_embed(tokens)           # [B, L, embed_dim]
-        octave_emb = self.octave_embed(octaves)         # [B, L, embed_dim]
-        duration_emb = self.duration_linear(note_durations.unsqueeze(-1))  # [B, L, embed_dim]
+        # ? 
+        # ? tokens: LongTensor of shape [batch_size, seq_length]
+        # ? octaves: LongTensor of shape [batch_size, seq_length]
+        # ? note_durations: FloatTensor of shape [batch_size, seq_length]
 
-        # Sum embeddings and add positional encoding
-        x = token_emb + octave_emb + duration_emb + self.pos_embedding  # [B, L, embed_dim]
+        token_emb = self.note_embed(tokens)           # ! [B, L, embed_dim]
+        octave_emb = self.octave_embed(octaves)         # ! [B, L, embed_dim]
+        duration_emb = self.duration_linear(note_durations.unsqueeze(-1))  # ! [B, L, embed_dim]
 
-        # Transformer expects input of shape [L, B, embed_dim]
+        # * Sum embeddings and add positional encoding
+        x = token_emb + octave_emb + duration_emb + self.pos_embedding  # ! [B, L, embed_dim]
+
+        # * Transformer expects input of shape [L, B, embed_dim]
         x = x.permute(1, 0, 2)
         x = self.transformer_encoder(x)
 
-        # Use the first token's output as a pooled representation
-        pooled = x[0]  # [B, embed_dim]
+        # * Use the first token's output as a pooled representation
+        pooled = x[0]  # ! [B, embed_dim]
 
-        # Additional layers for further processing
+        # * Additional layers for further processing
         x = self.fc1(pooled)
         x = self.relu(x)
         x = self.dropout(x)
@@ -141,17 +141,15 @@ class ChordPredictor(nn.Module):
         x = self.relu(x)
         x = self.dropout(x)
 
-        # Final output heads
-        chord_logits = self.fc_class(x)              # [B, num_classes]
-        chord_duration = self.fc_duration(x).squeeze(-1)  # [B]
+        # * Final output heads
+        chord_logits = self.fc_class(x)              # ! [B, num_classes]
+        chord_duration = self.fc_duration(x).squeeze(-1)  # ! [B]
         return chord_logits, chord_duration
 
 # ----- Helper Function: Parse a Note String -----
 def parse_note(note_str):
-    """
-    Parses a note string (e.g., 'C4', 'C#4', 'Rest') into its note name and octave.
-    If the note is a 'Rest', returns ("Rest", 0).
-    """
+    # * Parses a note string (e.g., 'C4', 'C#4', 'Rest') into its note name and octave.
+    # * If the note is a 'Rest', returns ("Rest", 0).
     if note_str == "Rest":
         return "Rest", 0
     match = re.match(r"([A-G][#-]*)(\d+)", note_str)
@@ -160,7 +158,7 @@ def parse_note(note_str):
         octave = int(match.group(2))
         return note_name, octave
     else:
-        # If no octave is found, assume a default octave (e.g., 4)
+        # * If no octave is found, assume a default octave (e.g., 4)
         return note_str, 4
 
 # ----- Load the Model -----
@@ -184,16 +182,16 @@ def load_model(filepath: str):
 
 # ----- Prediction Function -----
 def predict_chord(model, measure_data):
-    """
-    Predicts the chord for a given measure using the pre-trained model.
+    # ?
+    # ? Predicts the chord for a given measure using the pre-trained model.
     
-    Args:
-        model: The loaded ChordPredictor model.
-        measure_data: List of tuples (note_str, duration) representing the measure.
+    # ? Args:
+    # ?    model: The loaded ChordPredictor model.
+    # ?    measure_data: List of tuples (note_str, duration) representing the measure.
         
-    Returns:
-        predicted_chord: The predicted chord symbol as a string.
-    """
+    # ? Returns:
+    # ?   predicted_chord: The predicted chord symbol as a string.
+    
     tokens = []
     octaves = []
     durations = []
