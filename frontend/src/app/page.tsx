@@ -79,12 +79,14 @@ export default function Home() {
             if (progressIntervalRef.current) {
                 clearInterval(progressIntervalRef.current);
             }
-        } catch (err: any) {
-            setError(
-                err.message || "An error occurred while processing the file."
-            );
+        } catch (err: unknown) {
             if (progressIntervalRef.current) {
                 clearInterval(progressIntervalRef.current);
+            }
+            if (err instanceof Error) {
+                setError(err.message);
+            } else {
+                setError("An unknown error occurred.");
             }
         } finally {
             setLoading(false);

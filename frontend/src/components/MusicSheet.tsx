@@ -1,5 +1,6 @@
-// components/MusicSheet.tsx
+// src/components/MusicSheet.tsx
 import React, { useEffect, useRef } from "react";
+import type { OpenSheetMusicDisplay } from "opensheetmusicdisplay";
 
 interface MusicSheetProps {
     musicxmlContent: string;
@@ -7,7 +8,7 @@ interface MusicSheetProps {
 
 const MusicSheet: React.FC<MusicSheetProps> = ({ musicxmlContent }) => {
     const containerRef = useRef<HTMLDivElement>(null);
-    const osmdRef = useRef<any>(null);
+    const osmdRef = useRef<OpenSheetMusicDisplay | null>(null);
 
     useEffect(() => {
         const renderSheet = async () => {
@@ -15,10 +16,11 @@ const MusicSheet: React.FC<MusicSheetProps> = ({ musicxmlContent }) => {
                 "opensheetmusicdisplay"
             );
             if (containerRef.current) {
-                // Initialize OSMD with autoResize and desired drawing parameters
                 const osmd = new OpenSheetMusicDisplay(containerRef.current, {
                     autoResize: true,
-                    drawingParameters: "compacttight",
+                    drawingParameters: {
+                        drawInstrumentName: false,
+                    },
                 });
                 osmdRef.current = osmd;
                 await osmd.load(musicxmlContent);
@@ -31,7 +33,7 @@ const MusicSheet: React.FC<MusicSheetProps> = ({ musicxmlContent }) => {
         }
     }, [musicxmlContent]);
 
-    // Use ResizeObserver to trigger a re-render when the container size changes
+    // ResizeObserver to update rendering on container resize
     useEffect(() => {
         if (!containerRef.current) return;
 
@@ -51,7 +53,7 @@ const MusicSheet: React.FC<MusicSheetProps> = ({ musicxmlContent }) => {
         <div
             ref={containerRef}
             className="mt-4 p-4 bg-white rounded-lg shadow-lg overflow-auto w-full"
-            style={{ minHeight: "400px" }} // Adjust minHeight as needed
+            style={{ minHeight: "400px" }} // Adjust as needed
         />
     );
 };
