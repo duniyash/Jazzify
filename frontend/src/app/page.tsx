@@ -5,7 +5,7 @@ import MusicSheet from "../components/MusicSheet";
 import { Button } from "@/components/ui/button"; // adjust import path as needed
 import { Progress } from "@/components/ui/progress"; // adjust import path as needed
 
-const UploadAndRender: React.FC = () => {
+export default function Home() {
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const [originalMusicxml, setOriginalMusicxml] = useState<string | null>(
         null
@@ -177,6 +177,4 @@ const UploadAndRender: React.FC = () => {
             )}
         </div>
     );
-};
-
-export default UploadAndRender;
+}
