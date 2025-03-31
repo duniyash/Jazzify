@@ -1,10 +1,4 @@
 declare module "opensheetmusicdisplay" {
-    export interface DrawingParameters {
-        drawInstrumentName?: boolean;
-        // add other drawing parameters as needed
-        [key: string]: any;
-    }
-
     export interface Options {
         autoResize?: boolean;
         drawingParameters?: string;
