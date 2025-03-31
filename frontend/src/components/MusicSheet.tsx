@@ -18,9 +18,7 @@ const MusicSheet: React.FC<MusicSheetProps> = ({ musicxmlContent }) => {
             if (containerRef.current) {
                 const osmd = new OpenSheetMusicDisplay(containerRef.current, {
                     autoResize: true,
-                    drawingParameters: {
-                        drawInstrumentName: false,
-                    },
+                    drawingParameters: "compacttight",
                 });
                 osmdRef.current = osmd;
                 await osmd.load(musicxmlContent);

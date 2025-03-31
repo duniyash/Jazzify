@@ -1,13 +1,8 @@
 // src/types/opensheetmusicdisplay.d.ts
 declare module "opensheetmusicdisplay" {
-    export interface DrawingParameters {
-        drawInstrumentName?: boolean;
-        [key: string]: unknown; // Use unknown instead of any
-    }
-
     export interface Options {
         autoResize?: boolean;
-        drawingParameters?: DrawingParameters;
+        drawingParameters?: string;
         [key: string]: unknown; // Use unknown instead of any
     }
 
