@@ -4,8 +4,8 @@ from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 import logging
 
-from functions.processing import process_musicxml_file #, maybe_convert_mxl
-from functions.utils import setup_logging
+from processing import process_musicxml_file #, maybe_convert_mxl
+from utils import setup_logging
 
 # Set up logging
 setup_logging()
