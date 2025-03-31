@@ -20,6 +20,8 @@ export default function Home() {
     const fileInputRef = useRef<HTMLInputElement>(null);
     const progressIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
+    const api_url = process.env.NEXT_PUBLIC_API_URL;
+
     // Trigger file selection via hidden input
     const handleFileSelect = (event: ChangeEvent<HTMLInputElement>) => {
         setError(null);
@@ -57,14 +59,15 @@ export default function Home() {
             const formData = new FormData();
             formData.append("file", selectedFile);
 
+            if (!api_url) {
+                throw new Error("API URL is not configured");
+            }
+
             // Send the file to the API endpoint
-            const response = await fetch(
-                "http://127.0.0.1:8000/process_musicxml",
-                {
-                    method: "POST",
-                    body: formData,
-                }
-            );
+            const response = await fetch(api_url, {
+                method: "POST",
+                body: formData,
+            });
 
             if (!response.ok) {
                 throw new Error(`Server responded with ${response.status}`);
