@@ -84,7 +84,7 @@ export default function Home() {
 
     return (
         <div className="min-h-screen flex flex-col items-center justify-center bg-gray-100 p-4 space-y-4">
-            <h1 className="text-3xl font-bold mb-6">Upload a MusicXML File</h1>
+            <h1 className="text-3xl font-bold mb-6">Jazzify</h1>
 
             <div className="w-full max-w-md flex flex-col items-center space-y-4">
                 {/* Hidden file input */}
