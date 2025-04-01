@@ -46,4 +46,4 @@ async def process_musicxml_endpoint(file: UploadFile = File(...)):
 
 if __name__ == '__main__':
     # Run the app with uvicorn when executed directly
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=False)
