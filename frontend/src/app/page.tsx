@@ -3,7 +3,9 @@
 import React, { useState, ChangeEvent, useRef, useEffect } from "react";
 import MusicSheet from "../components/MusicSheet";
 import { Button } from "@/components/ui/button"; // adjust import path as needed
-import { Progress } from "@/components/ui/progress"; // adjust import path as needed
+
+import { NewtonsCradle } from "ldrs/react";
+import "ldrs/react/NewtonsCradle.css";
 
 export default function Home() {
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -15,7 +17,6 @@ export default function Home() {
     );
     const [loading, setLoading] = useState<boolean>(false);
     const [error, setError] = useState<string | null>(null);
-    const [progress, setProgress] = useState<number>(0);
 
     const fileInputRef = useRef<HTMLInputElement>(null);
     const progressIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -40,15 +41,6 @@ export default function Home() {
         try {
             setLoading(true);
             setError(null);
-            setProgress(0);
-
-            // Start simulating progress until completion (up to 95%)
-            progressIntervalRef.current = setInterval(() => {
-                setProgress((prev) => {
-                    const next = prev + 5;
-                    return next >= 95 ? 95 : next;
-                });
-            }, 200);
 
             // Read file content as text for original display
             const originalText = await selectedFile.text();
@@ -76,12 +68,6 @@ export default function Home() {
             // The API returns processed MusicXML as raw text
             const processedText = await response.text();
             setProcessedMusicxml(processedText);
-
-            // On success, set progress to 100 and clear the progress interval
-            setProgress(100);
-            if (progressIntervalRef.current) {
-                clearInterval(progressIntervalRef.current);
-            }
         } catch (err: unknown) {
             if (progressIntervalRef.current) {
                 clearInterval(progressIntervalRef.current);
@@ -95,15 +81,6 @@ export default function Home() {
             setLoading(false);
         }
     };
-
-    // Clear the interval on unmount
-    useEffect(() => {
-        return () => {
-            if (progressIntervalRef.current) {
-                clearInterval(progressIntervalRef.current);
-            }
-        };
-    }, []);
 
     return (
         <div className="min-h-screen flex flex-col items-center justify-center bg-gray-100 p-4 space-y-4">
@@ -133,7 +110,7 @@ export default function Home() {
 
                 {/* Upload button appears once a file is selected */}
                 {selectedFile && (
-                    <Button onClick={handleUpload} variant="secondary">
+                    <Button onClick={handleUpload} variant="outline">
                         Upload
                     </Button>
                 )}
@@ -142,10 +119,7 @@ export default function Home() {
             {/* Display the progress bar while processing */}
             {loading && (
                 <div className="w-full max-w-md mt-4 flex flex-col items-center space-y-2">
-                    <Progress value={progress} className="w-[60%]" />
-                    <p className="mt-2 text-blue-600 font-medium">
-                        Processing file... {progress}%
-                    </p>
+                    <NewtonsCradle size="78" speed="1.4" color="black" />
                 </div>
             )}
 
