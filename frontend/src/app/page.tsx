@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, ChangeEvent, useRef, useEffect } from "react";
+import React, { useState, ChangeEvent, useRef } from "react";
 import MusicSheet from "../components/MusicSheet";
 import { Button } from "@/components/ui/button"; // adjust import path as needed
 
