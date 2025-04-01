@@ -107,7 +107,7 @@ def process_musicxml_file(file_contents: bytes):
     measures_data = extract_measures(melody_score)
     
     # --- Load the chord prediction model ---
-    model = load_model("chord_predictor.safetensors")
+    model = load_model("backend/chord_predictor.safetensors")
     
     # --- Predict chords for each measure ---
     predicted_chords = []
