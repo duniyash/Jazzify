@@ -109,8 +109,12 @@ export default function JazzifyApp() {
             // Cleanup
             window.URL.revokeObjectURL(url);
             document.body.removeChild(a);
-        } catch (err) {
-            setError("Failed to download the processed file.");
+        } catch (err: unknown) {
+            if (err instanceof Error) {
+                setError(err.message);
+            } else {
+                setError("Failed to download the processed file.");
+            }
         }
     };
 
