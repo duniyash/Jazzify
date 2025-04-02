@@ -1,6 +1,6 @@
 # Jazzify Project
 
-Welcome to the Jazzify project – a final year project aimed at exploring and automating chord prediction for musical scores. This repository contains the backend code responsible for processing MusicXML files, extracting melody data, predicting chord symbols using a deep learning model, and compiling the final score.
+Welcome to the Jazzify – a final year project aimed at exploring and automating chord prediction for musical scores. This repository contains the backend code responsible for processing MusicXML files, extracting melody data, predicting chord symbols using a deep learning model, and compiling the final score.
 
 ---
 
