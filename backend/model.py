@@ -234,7 +234,7 @@ def predict_chord(model, measure_data):
     return predicted_chord
 
 def melody_extractor(score):
-    """
+    """ 
     Extracts the melody in the treble clef from the given MusicXML score,
     discarding non-musical elements (e.g., Clef or layout objects).
 
@@ -248,8 +248,7 @@ def melody_extractor(score):
     Returns:
         music21.stream.Score: A new score containing only the melody from the treble clef.
     """
-    from music21 import stream, clef, note, chord
-
+    
     # Create a new score and part for the melody
     melody_score = stream.Score()
     melody_part = stream.Part()

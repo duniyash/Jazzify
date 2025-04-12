@@ -6,128 +6,93 @@ import tempfile
 import os
 from model import *
 
-def extract_measures(score):
+def extract_half_measures(score):
     """
-    Extracts measures from a music21 score.
-    Returns a list where each element represents a measure as a list of (note, duration) tuples.
-    Only note.Note and note.Rest elements are processed.
+    Extracts two halves from each measure in a music21 score.
+    Returns a list of tuples, each containing two lists of (note, duration) tuples representing the halves.
     """
-    measures_data = []
-    # Assume processing from the first part; adjust if multiple parts are needed.
+    half_measures_data = []
     for measure in score.parts[0].getElementsByClass('Measure'):
-        measure_data = []
-        for element in measure:
-            if isinstance(element, note.Note):
-                measure_data.append((element.nameWithOctave, element.quarterLength))
-            elif isinstance(element, note.Rest):
-                measure_data.append(('Rest', element.quarterLength))
-        measures_data.append(measure_data)
-    return measures_data
+        total_duration = measure.quarterLength / 2
+        first_half, second_half = [], []
+        current_duration = 0.0
 
-def compile_chords_into_score(chords, time_sig=None):
+        for element in measure:
+            if isinstance(element, (note.Note, note.Rest)):
+                elem_data = (element.nameWithOctave if isinstance(element, note.Note) else 'Rest', element.quarterLength)
+                if current_duration + element.quarterLength <= total_duration:
+                    first_half.append(elem_data)
+                    current_duration += element.quarterLength
+                else:
+                    second_half.append(elem_data)
+
+        half_measures_data.append((first_half, second_half))
+    return half_measures_data
+
+def compile_double_chords_into_score(double_chords, time_sig=None):
     """
-    Compiles a list of chord symbol strings into a new music21 score.
-    Each chord is realized as a chord (actual note objects) spanning the full duration of a measure,
-    with the measure number set appropriately based on the time signature.
-    
-    Args:
-        chords (list of str): Predicted chord symbol strings.
-        time_sig (music21.meter.TimeSignature, optional): The time signature to use.
-            If None, defaults to 4/4.
-    
-    Returns:
-        music21.stream.Score: A score with a bass-clef part containing the realized chords.
+    Compiles a list of pairs of chord symbols into a new music21 score with two chords per measure.
+    Each chord spans half a measure.
     """
     new_score = stream.Score()
     part = stream.Part()
-    # Set the part to use the Bass Clef.
     part.append(clef.BassClef())
-    
-    # Use provided time signature or default to 4/4.
+
     if time_sig is None:
         time_sig = meter.TimeSignature('4/4')
     part.append(time_sig)
-    
-    # Compute the bar duration from the time signature (in quarter notes)
-    bar_duration = time_sig.barDuration.quarterLength
-    
-    # Iterate over chords, assigning a measure number to each.
-    for i, chord_symbol in enumerate(chords, start=1):
+
+    half_duration = time_sig.barDuration.quarterLength / 2
+
+    for i, (chord1, chord2) in enumerate(double_chords, start=1):
         measure = stream.Measure(number=i)
-        cs = ChordSymbol(chord_symbol)
-        realized_chord = chord.Chord(cs.pitches)
-        realized_chord.quarterLength = bar_duration
-        measure.append(realized_chord)
+        cs1 = ChordSymbol(chord1)
+        cs2 = ChordSymbol(chord2)
+
+        ch1 = chord.Chord(cs1.pitches)
+        ch1.quarterLength = half_duration
+        ch2 = chord.Chord(cs2.pitches)
+        ch2.quarterLength = half_duration
+
+        measure.append(ch1)
+        measure.append(ch2)
         part.append(measure)
-    
+
     new_score.append(part)
     return new_score
 
 
 def process_musicxml_file(file_contents: bytes):
-    """
-    Full processing workflow for a MusicXML file:
-      1. Parse the file with music21.
-      2. Extract the melody (treble clef) from the score.
-      3. Extract note and duration data per measure from the melody.
-      4. Load the chord prediction model.
-      5. Predict a chord for each measure.
-      6. Auto-detect the time signature from the melody.
-      7. Compile the predicted chords into a chord score (bass clef) with full-measure chords
-         and proper bar numbers.
-      8. Combine the melody and chord parts into a final score.
-      9. Output the final score as a MusicXML file stream.
-    """
     print("Processing musicxml file")
-    
-    # --- Parse the MusicXML file with enhanced debugging ---
+
     try:
         file_stream = io.BytesIO(file_contents)
         try:
             score = converter.parse(file_stream)
-            logging.info("Parsed MusicXML file using converter.parse successfully.")
-        except Exception as e:
-            logging.error(f"converter.parse failed with error: {e}")
-            # Fallback: try using parseData
-            try:
-                score = converter.parseData(file_contents, format='musicxml')
-                logging.info("Parsed MusicXML file using converter.parseData successfully.")
-            except Exception as e2:
-                logging.error(f"converter.parseData failed with error: {e2}")
-                raise Exception("Invalid MusicXML file provided.")
-    except Exception as e:
-        logging.exception("Error parsing MusicXML file")
-        logging.error(f"File content (first 500 bytes): {file_contents[:500]}")
+        except Exception:
+            score = converter.parseData(file_contents, format='musicxml')
+    except Exception:
         raise Exception("Invalid MusicXML file provided.")
-    
-    # --- Extract the melody (treble clef) from the original score ---
+
     melody_score = melody_extractor(score)
-    
-    # --- Extract measures from the melody score ---
-    measures_data = extract_measures(melody_score)
-    
-    # --- Load the chord prediction model ---
-    model = load_model("chord_predictor.safetensors")
-    
-    # --- Predict chords for each measure ---
+    half_measure_data = extract_half_measures(melody_score)
+    model = load_model("backend\chord_predictor.safetensors")
+
     predicted_chords = []
-    for measure_data in measures_data:
-        chord_prediction = predict_chord(model, measure_data)
-        predicted_chords.append(chord_prediction)
-    
-    # --- Auto-detect the time signature from the melody score ---
+    for half1, half2 in half_measure_data:
+        pred1 = predict_chord(model, half1)
+        pred2 = predict_chord(model, half2)
+        predicted_chords.append((pred1, pred2))
+
     ts_elements = melody_score.flat.getElementsByClass(meter.TimeSignature)
     detected_ts = ts_elements[0] if ts_elements else None
-    
-    # --- Compile the predicted chords into a chord score (bass clef) with proper bar numbers ---
-    chord_score = compile_chords_into_score(predicted_chords, time_sig=detected_ts)
-    
-    # --- Combine the melody and chord parts into a final score ---
+
+    chord_score = compile_double_chords_into_score(predicted_chords, time_sig=detected_ts)
+
     final_score = stream.Score()
     final_score.append(melody_score.parts[0])
     final_score.append(chord_score.parts[0])
-    
-    # --- Write the final score to a temporary MusicXML file and return as a BytesIO stream ---
+
     with tempfile.NamedTemporaryFile(delete=False, suffix='.musicxml') as tmp:
         temp_filename = tmp.name
 
