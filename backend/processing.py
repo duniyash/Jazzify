@@ -24,42 +24,47 @@ def extract_measures(score):
         measures_data.append(measure_data)
     return measures_data
 
-def compile_chords_into_score(chords, time_sig=None):
+def compile_chords_into_score(chords, time_sig=None, arpeggiate=True):
     """
-    Compiles a list of chord symbol strings into a new music21 score.
-    Each chord is realized as a chord (actual note objects) spanning the full duration of a measure,
-    with the measure number set appropriately based on the time signature.
-    
+    Compiles a list of chord symbol strings into a new music21 score with optional arpeggiation.
+
     Args:
-        chords (list of str): Predicted chord symbol strings.
-        time_sig (music21.meter.TimeSignature, optional): The time signature to use.
-            If None, defaults to 4/4.
-    
+        chords (list of str): List of chord symbol strings (e.g., 'Cmaj7', 'G7').
+        time_sig (music21.meter.TimeSignature, optional): The time signature to use. Defaults to 4/4.
+        arpeggiate (bool): Whether to break chords into arpeggiated single notes.
+
     Returns:
-        music21.stream.Score: A score with a bass-clef part containing the realized chords.
+        music21.stream.Score: Score with chords added as either full-measure blocks or arpeggios.
     """
     new_score = stream.Score()
     part = stream.Part()
-    # Set the part to use the Bass Clef.
     part.append(clef.BassClef())
-    
-    # Use provided time signature or default to 4/4.
+
     if time_sig is None:
         time_sig = meter.TimeSignature('4/4')
     part.append(time_sig)
-    
-    # Compute the bar duration from the time signature (in quarter notes)
+
     bar_duration = time_sig.barDuration.quarterLength
-    
-    # Iterate over chords, assigning a measure number to each.
+
     for i, chord_symbol in enumerate(chords, start=1):
         measure = stream.Measure(number=i)
         cs = ChordSymbol(chord_symbol)
-        realized_chord = chord.Chord(cs.pitches)
-        realized_chord.quarterLength = bar_duration
-        measure.append(realized_chord)
+        pitches = cs.pitches
+
+        if arpeggiate:
+            # Divide the measure duration equally among the notes
+            arpeggio_duration = bar_duration / len(pitches)
+            for pitch in pitches:
+                n = note.Note(pitch)
+                n.quarterLength = arpeggio_duration
+                measure.append(n)
+        else:
+            realized_chord = chord.Chord(pitches)
+            realized_chord.quarterLength = bar_duration
+            measure.append(realized_chord)
+
         part.append(measure)
-    
+
     new_score.append(part)
     return new_score
 
