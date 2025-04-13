@@ -1,6 +1,6 @@
 import io
 import logging
-from music21 import converter, chord, stream, clef, note, meter
+from music21 import converter, chord, stream, clef, note, meter, expressions
 from music21.harmony import ChordSymbol
 import tempfile
 import os
@@ -26,15 +26,8 @@ def extract_measures(score):
 
 def compile_chords_into_score(chords, time_sig=None, arpeggiate=True):
     """
-    Compiles a list of chord symbol strings into a new music21 score with optional arpeggiation.
-
-    Args:
-        chords (list of str): List of chord symbol strings (e.g., 'Cmaj7', 'G7').
-        time_sig (music21.meter.TimeSignature, optional): The time signature to use. Defaults to 4/4.
-        arpeggiate (bool): Whether to break chords into arpeggiated single notes.
-
-    Returns:
-        music21.stream.Score: Score with chords added as either full-measure blocks or arpeggios.
+    Compiles a list of chord symbol strings into a new music21 score.
+    If arpeggiate is True, adds a visible arpeggio sign to each chord.
     """
     new_score = stream.Score()
     part = stream.Part()
@@ -49,25 +42,19 @@ def compile_chords_into_score(chords, time_sig=None, arpeggiate=True):
     for i, chord_symbol in enumerate(chords, start=1):
         measure = stream.Measure(number=i)
         cs = ChordSymbol(chord_symbol)
-        pitches = cs.pitches
+        realized_chord = chord.Chord(cs.pitches)
+        realized_chord.quarterLength = bar_duration
 
         if arpeggiate:
-            # Divide the measure duration equally among the notes
-            arpeggio_duration = bar_duration / len(pitches)
-            for pitch in pitches:
-                n = note.Note(pitch)
-                n.quarterLength = arpeggio_duration
-                measure.append(n)
-        else:
-            realized_chord = chord.Chord(pitches)
-            realized_chord.quarterLength = bar_duration
-            measure.append(realized_chord)
+            # Add arpeggio marking for visual notation
+            arpeggio_mark = expressions.ArpeggioMark()
+            realized_chord.expressions.append(arpeggio_mark)
 
+        measure.append(realized_chord)
         part.append(measure)
 
     new_score.append(part)
     return new_score
-
 
 def process_musicxml_file(file_contents: bytes):
     """
@@ -125,12 +112,17 @@ def process_musicxml_file(file_contents: bytes):
     detected_ts = ts_elements[0] if ts_elements else None
     
     # --- Compile the predicted chords into a chord score (bass clef) with proper bar numbers ---
-    chord_score = compile_chords_into_score(predicted_chords, time_sig=detected_ts)
+    chord_score = compile_chords_into_score(predicted_chords, time_sig=detected_ts, arpeggiate=True)
     
     # --- Combine the melody and chord parts into a final score ---
     final_score = stream.Score()
     final_score.append(melody_score.parts[0])
     final_score.append(chord_score.parts[0])
+
+    # --- Add swing feel text expression at the beginning ---
+    swing_text = expressions.TextExpression("Swing")
+    swing_text.placement = 'above'
+    final_score.insert(0, swing_text)
     
     # --- Write the final score to a temporary MusicXML file and return as a BytesIO stream ---
     with tempfile.NamedTemporaryFile(delete=False, suffix='.musicxml') as tmp:
