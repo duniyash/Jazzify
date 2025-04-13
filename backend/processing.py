@@ -116,13 +116,20 @@ def process_musicxml_file(file_contents: bytes):
     
     # --- Combine the melody and chord parts into a final score ---
     final_score = stream.Score()
-    final_score.append(melody_score.parts[0])
-    final_score.append(chord_score.parts[0])
+    melody_part = melody_score.parts[0]
+    chord_part = chord_score.parts[0]
 
-    # --- Add swing feel text expression at the beginning ---
+    # --- Add swing feel text expression at the beginning of the melody part ---
+    from music21 import expressions  # make sure this is at the top of the file
+
     swing_text = expressions.TextExpression("Swing")
     swing_text.placement = 'above'
-    final_score.insert(0, swing_text)
+    melody_part.insert(0, swing_text)  # Insert it into the melody part, not the score
+
+    # --- Add parts to the final score ---
+    final_score.append(melody_part)
+    final_score.append(chord_part)
+
     
     # --- Write the final score to a temporary MusicXML file and return as a BytesIO stream ---
     with tempfile.NamedTemporaryFile(delete=False, suffix='.musicxml') as tmp:
