@@ -76,7 +76,7 @@ def process_musicxml_file(file_contents: bytes):
 
     melody_score = melody_extractor(score)
     half_measure_data = extract_half_measures(melody_score)
-    model = load_model("backend\chord_predictor.safetensors")
+    model = load_model("chord_predictor.safetensors")
 
     predicted_chords = []
     for half1, half2 in half_measure_data:
