@@ -57,19 +57,6 @@ def compile_chords_into_score(chords, time_sig=None, arpeggiate=True):
     return new_score
 
 def process_musicxml_file(file_contents: bytes):
-    """
-    Full processing workflow for a MusicXML file:
-      1. Parse the file with music21.
-      2. Extract the melody (treble clef) from the score.
-      3. Extract note and duration data per measure from the melody.
-      4. Load the chord prediction model.
-      5. Predict a chord for each measure.
-      6. Auto-detect the time signature from the melody.
-      7. Compile the predicted chords into a chord score (bass clef) with full-measure chords
-         and proper bar numbers.
-      8. Combine the melody and chord parts into a final score.
-      9. Output the final score as a MusicXML file stream.
-    """
     print("Processing musicxml file")
     
     # --- Parse the MusicXML file with enhanced debugging ---
@@ -119,9 +106,6 @@ def process_musicxml_file(file_contents: bytes):
     melody_part = melody_score.parts[0]
     chord_part = chord_score.parts[0]
 
-    # --- Add swing feel text expression at the beginning of the melody part ---
-    from music21 import expressions  # make sure this is at the top of the file
-
     swing_text = expressions.TextExpression("Swing")
     swing_text.placement = 'above'
     melody_part.insert(0, swing_text)  # Insert it into the melody part, not the score
@@ -130,7 +114,7 @@ def process_musicxml_file(file_contents: bytes):
     final_score.append(melody_part)
     final_score.append(chord_part)
 
-    
+
     # --- Write the final score to a temporary MusicXML file and return as a BytesIO stream ---
     with tempfile.NamedTemporaryFile(delete=False, suffix='.musicxml') as tmp:
         temp_filename = tmp.name

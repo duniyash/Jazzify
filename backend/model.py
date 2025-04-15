@@ -83,9 +83,7 @@ num_octaves = 10
 # ----- Model Definition -----
 class ChordPredictor(nn.Module):
     def __init__(self, vocab_size, embed_dim, num_heads, hidden_dim, num_layers, num_classes, max_seq_length, num_octaves=10):
-        """
-        num_octaves: maximum number of octave categories (adjust if your octave range is larger)
-        """
+        
         super(ChordPredictor, self).__init__()
         # * Embedding for note tokens
         self.note_embed = nn.Embedding(vocab_size, embed_dim)
@@ -182,16 +180,6 @@ def load_model(filepath: str):
 
 # ----- Prediction Function -----
 def predict_chord(model, measure_data):
-    # ?
-    # ? Predicts the chord for a given measure using the pre-trained model.
-    
-    # ? Args:
-    # ?    model: The loaded ChordPredictor model.
-    # ?    measure_data: List of tuples (note_str, duration) representing the measure.
-        
-    # ? Returns:
-    # ?   predicted_chord: The predicted chord symbol as a string.
-    
     tokens = []
     octaves = []
     durations = []
@@ -234,22 +222,6 @@ def predict_chord(model, measure_data):
     return predicted_chord
 
 def melody_extractor(score):
-    """
-    Extracts the melody in the treble clef from the given MusicXML score,
-    discarding non-musical elements (e.g., Clef or layout objects).
-
-    Only note.Note, chord.Chord, and note.Rest elements are retained if they
-    occur in a treble clef context. Measure attributes like TimeSignature and
-    KeySignature are also copied.
-
-    Args:
-        score (music21.stream.Score): The input score.
-
-    Returns:
-        music21.stream.Score: A new score containing only the melody from the treble clef.
-    """
-    from music21 import stream, clef, note, chord
-
     # Create a new score and part for the melody
     melody_score = stream.Score()
     melody_part = stream.Part()
