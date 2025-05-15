@@ -120,8 +120,11 @@ export default function JazzifyApp() {
 
     return (
         <div className="flex flex-col justify-center items-center space-y-4 bg-gray-100 p-4 min-h-screen">
-            <h1 className="mb-6 font-bold text-3xl">Jazzify</h1>
-
+            <h1 className="mb-2 font-bold text-3xl">Jazzify</h1>
+            <h2 className="mb-6 text-slate-500 text-sm">
+                Start by uploading a file and get the jazzified version in
+                seconds!
+            </h2>
             <div className="flex flex-col items-center space-y-4 w-full max-w-md">
                 {/* Hidden file input */}
                 <input
@@ -133,23 +136,24 @@ export default function JazzifyApp() {
                     className="hidden"
                 />
 
-                {/* Button to trigger file selection */}
-                <Button onClick={() => fileInputRef.current?.click()}>
-                    Select File
-                </Button>
-
                 {selectedFile && (
                     <p className="text-gray-700 text-sm">
                         Selected File: {selectedFile.name}
                     </p>
                 )}
 
-                {/* Upload button appears once a file is selected */}
-                {selectedFile && (
-                    <Button onClick={handleUpload} variant="outline">
-                        Upload
+                <div className="flex flex-row space-x-2">
+                    {/* Button to trigger file selection */}
+                    <Button onClick={() => fileInputRef.current?.click()}>
+                        Select File
                     </Button>
-                )}
+                    {/* Upload button appears once a file is selected */}
+                    {selectedFile && (
+                        <Button onClick={handleUpload} variant="outline">
+                            Upload
+                        </Button>
+                    )}
+                </div>
             </div>
 
             {/* Display the progress bar while processing */}
